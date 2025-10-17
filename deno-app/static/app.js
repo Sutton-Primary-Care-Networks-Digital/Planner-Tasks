@@ -124,6 +124,29 @@ class PlannerApp {
         // Results
         document.getElementById('create-more-btn').addEventListener('click', () => this.reset());
 
+        // Top nav: Workflow & Prompt page
+        const workflowLink = document.getElementById('workflow-link');
+        if (workflowLink) {
+            workflowLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showWorkflow();
+            });
+        }
+        const homeLink = document.getElementById('home-link');
+        if (homeLink) {
+            homeLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.goHome();
+            });
+        }
+        const backToTool = document.getElementById('back-to-tool');
+        if (backToTool) {
+            backToTool.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.goHome();
+            });
+        }
+
         // Final Preview modal controls
         const fpClose = document.getElementById('final-preview-close');
         const fpCancel = document.getElementById('final-preview-cancel');
@@ -134,11 +157,31 @@ class PlannerApp {
 
         // Inline Bucket selection list wiring
         this.buildBucketSelectionListInline();
+
+        // Copilot prompt copy handler
+        const copyBtn = document.getElementById('copy-copilot-prompt');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', async () => {
+                try {
+                    const ta = document.getElementById('copilot-prompt');
+                    if (ta) {
+                        await navigator.clipboard.writeText(ta.value);
+                        const ok = document.getElementById('copilot-prompt-copied');
+                        if (ok) {
+                            ok.classList.remove('hidden');
+                            setTimeout(() => ok.classList.add('hidden'), 1500);
+                        }
+                    }
+                } catch (e) {
+                    this.showToast('Copy failed. Select and copy manually.', 'warning');
+                }
+            });
+        }
     }
     
     showStep(step) {
         // Hide all sections
-        const sections = ['auth-section', 'upload-section', 'column-mapping-section', 'planner-section', 'results-section'];
+        const sections = ['auth-section', 'upload-section', 'column-mapping-section', 'planner-section', 'results-section', 'workflow-section'];
         sections.forEach(sectionId => {
             document.getElementById(sectionId).classList.add('hidden');
         });
@@ -151,6 +194,24 @@ class PlannerApp {
             document.getElementById('step-indicator').classList.remove('hidden');
             document.getElementById('user-info').classList.remove('hidden');
             this.updateStepIndicator(step);
+        }
+    }
+
+    showWorkflow() {
+        // Hide step indicator while in docs page
+        document.getElementById('step-indicator').classList.add('hidden');
+        // Show workflow page only
+        this.showStep('workflow');
+        // Ensure workflow-section is visible even though not a numbered step
+        document.getElementById('workflow-section')?.classList.remove('hidden');
+    }
+
+    goHome() {
+        // If authenticated, go to current logical step (upload) else auth
+        if (this.sessionId) {
+            this.showStep('upload');
+        } else {
+            this.showStep('auth');
         }
     }
 
@@ -721,9 +782,18 @@ class PlannerApp {
             });
         });
 
+        // Prevent clicks inside the assignee menu from bubbling to document (which would close it)
+        document.querySelectorAll('.assignee-menu').forEach(menu => {
+            menu.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        });
+
         // Wire assignee checkbox lists
         document.querySelectorAll('.assignee-check').forEach(cb => {
             cb.addEventListener('change', (e) => {
+                // Keep menu open and prevent outside-click handler from triggering
+                e.stopPropagation();
                 const idx = parseInt(e.target.getAttribute('data-task-index'), 10);
                 const id = e.target.value;
                 if (!this.assigneeOverrides[idx]) this.assigneeOverrides[idx] = Array.isArray(this.assigneeOverrides[idx]) ? this.assigneeOverrides[idx] : [];
@@ -760,6 +830,8 @@ class PlannerApp {
                     }
                 }
             });
+            // Also intercept direct clicks on the checkbox element
+            cb.addEventListener('click', (e) => e.stopPropagation());
         });
 
         // Wire status dropdowns
@@ -777,6 +849,9 @@ class PlannerApp {
 
         // Wire assignee search filters
         document.querySelectorAll('.assignee-search').forEach(input => {
+            // Prevent clicks/typing from closing the menu
+            input.addEventListener('click', (e) => e.stopPropagation());
+            input.addEventListener('keydown', (e) => e.stopPropagation());
             input.addEventListener('input', (e) => {
                 const q = e.target.value.toLowerCase();
                 const menu = e.target.closest('.assignee-menu');
@@ -814,14 +889,20 @@ class PlannerApp {
                              `<label for=\"${id}\" class=\"text-sm text-gray-700\">${name} <span class=\"text-xs text-gray-500\">(${missingMap[name]} task(s))</span></label>`;
             container.appendChild(item);
         });
-        // Wire inline checks
+        // Wire inline checks (debounced rerender to not clobber assignee selections)
         container.querySelectorAll('.bucket-sel-check-inline').forEach(cb => {
             cb.addEventListener('change', (e) => {
+                e.stopPropagation();
                 const name = e.target.getAttribute('data-name');
                 if (e.target.checked) this.bucketSelectionSet.add(name); else this.bucketSelectionSet.delete(name);
-                this.showTaskPreview();
-                this.buildFinalPreview();
+                try { if (this._bucketRerenderTimer) clearTimeout(this._bucketRerenderTimer); } catch {}
+                this._bucketRerenderTimer = setTimeout(() => {
+                    this.showTaskPreview();
+                    this.buildFinalPreview();
+                    this._bucketRerenderTimer = null;
+                }, 150);
             });
+            cb.addEventListener('click', (e) => e.stopPropagation());
         });
     }
 

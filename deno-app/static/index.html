@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com data:; connect-src 'self'; img-src 'self' data:;">
     <title>Microsoft Planner Task Creator</title>
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="apple-touch-icon" href="/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -22,18 +25,24 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        html, body { overscroll-behavior-y: none; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
     <!-- Toast Container -->
     <div id="toast-container" class="fixed top-4 right-4 z-[100] space-y-2"></div>
     <!-- Header -->
-    <header class="bg-teal-600 text-white shadow-lg">
+    <header class="bg-teal-600 text-white shadow-lg sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between py-6">
                 <div class="flex items-center">
-                    <i class="fas fa-clipboard-list text-2xl mr-3"></i>
-                    <h1 class="text-2xl font-bold">Microsoft Planner Task Creator</h1>
+                    <a id="home-link" href="#" class="flex items-center hover:opacity-90">
+                        <i class="fas fa-clipboard-list text-2xl mr-3"></i>
+                        <h1 class="text-2xl font-bold">Microsoft Planner Task Creator</h1>
+                    </a>
+                    <nav class="ml-6">
+                        <a id="workflow-link" href="#" class="text-white font-semibold hover:underline text-sm">Workflow & Prompt</a>
+                    </nav>
                 </div>
 
         
@@ -63,10 +72,12 @@
                 </div>
             </div>
         </div>
-                <div id="user-info" class="hidden">
-                    <button id="sign-out-btn" class="bg-teal-700 hover:bg-teal-800 px-4 py-2 rounded-lg transition-colors">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Sign Out
-                    </button>
+                <div class="flex items-center gap-4">
+                    <div id="user-info" class="hidden">
+                        <button id="sign-out-btn" class="bg-teal-700 hover:bg-teal-800 px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-sign-out-alt mr-2"></i>Sign Out
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -206,7 +217,7 @@
                                 <select id="assignee-column" class="w-full border border-gray-300 rounded-lg px-3 py-2">
                                     <option value="">Select column...</option>
                                 </select>
-                                <p class="text-xs text-gray-500 mt-1">Supports comma-separated multiple assignees</p>
+                                <p class="text-xs text-gray-500 mt-1">Supports semicolon-separated multiple assignees</p>
                             </div>
                             
                             <div>
@@ -231,6 +242,104 @@
                 </div>
             </div>
         </div>
+
+        <!-- Workflow & Prompt Page (dedicated) -->
+        <section id="workflow-section" class="hidden max-w-3xl mx-auto">
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Workflow: From Meeting to Actionable Tasks</h2>
+                    <p class="text-gray-600">Beginner-friendly steps to go from a Microsoft Teams meeting to a CSV you can upload here.</p>
+                </div>
+                <div class="space-y-6 text-gray-800">
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-2">1) Record or Transcribe in Teams</h3>
+                        <ul class="list-disc pl-6 space-y-1">
+                            <li><span class="font-medium">During a meeting:</span> Open <em>More</em> (⋯) → <em>Record and transcribe</em> → <em>Start transcription</em>. Participants will be notified.</li>
+                            <li><span class="font-medium">If not enabled:</span> You can still get a transcript afterward from the meeting recap (if your org allows), or copy from Chat after the meeting.</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-2">2) Ways to Access the Transcript</h3>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div class="bg-gray-50 border rounded p-3">
+                                <p class="font-medium">A. From Teams Calendar (after the meeting)</p>
+                                <ul class="list-disc pl-6 mt-2 space-y-1">
+                                    <li>Go to <em>Calendar</em> → select the meeting.</li>
+                                    <li>Open the <em>Recap</em> tab → find <em>Transcript</em>.</li>
+                                    <li>Use <em>Copy</em> or <em>Download</em> (if available).</li>
+                                </ul>
+                            </div>
+                            <div class="bg-gray-50 border rounded p-3">
+                                <p class="font-medium">B. From Meeting Chat</p>
+                                <ul class="list-disc pl-6 mt-2 space-y-1">
+                                    <li>Open <em>Chat</em> → find the meeting chat thread.</li>
+                                    <li>Look for transcript cards or links posted by Teams.</li>
+                                    <li>Open the transcript, then copy or download.</li>
+                                </ul>
+                            </div>
+                            <div class="bg-gray-50 border rounded p-3">
+                                <p class="font-medium">C. From Microsoft Stream / OneDrive / SharePoint</p>
+                                <ul class="list-disc pl-6 mt-2 space-y-1">
+                                    <li>Meeting recordings are saved to OneDrive/SharePoint; transcripts may be in the recording page.</li>
+                                    <li>Open the recording in Stream (on SharePoint) → <em>Video settings</em> → <em>Transcript</em> → copy/export.</li>
+                                </ul>
+                            </div>
+                            <div class="bg-gray-50 border rounded p-3">
+                                <p class="font-medium">D. If no official transcript is available</p>
+                                <ul class="list-disc pl-6 mt-2 space-y-1">
+                                    <li>Copy the meeting notes or chat summary.</li>
+                                    <li>If you recorded audio, you can transcribe with Microsoft tools (e.g., Word online Transcribe) and paste here.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-2">3) Prepare the CSV with Copilot</h3>
+                        <ul class="list-disc pl-6 space-y-1">
+                            <li>Open Copilot (or similar) and paste the transcript.</li>
+                            <li>Use the prompt below to extract tasks into CSV format required by this tool.</li>
+                            <li>Copy the CSV result to a file (keep the header intact).</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-2">4) Import here and create tasks</h3>
+                        <ul class="list-disc pl-6 space-y-1">
+                            <li>Click the title/logo to return to the main tool.</li>
+                            <li>Upload your CSV, map columns if needed, review the preview, and create tasks.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-blue-800 mb-2">Copilot Prompt: Create a CSV from a meeting transcript</h3>
+                    <textarea id="copilot-prompt" class="w-full text-sm border border-blue-200 rounded p-2 bg-white" rows="12" readonly>
+You are a helpful assistant that converts meeting transcripts into a CSV for Microsoft Planner.
+Output ONLY a CSV with header:
+Title,Description,Start Date,Due Date,Assignee,Bucket Name,Status
+
+Rules:
+- One row per actionable task extracted from the transcript.
+- Dates in ISO format YYYY-MM-DD (leave empty if unknown).
+- Assignee can be a single person or semicolon-separated list (e.g., "John Doe; Jane Smith").
+- Bucket Name is a short category like "Development", "Testing", "Security"; leave empty if not specified.
+- Status must be one of: Not Started, In Progress, Complete (default to Not Started if unclear).
+- Title is concise; Description contains key details or acceptance criteria.
+
+Now extract tasks from the following transcript and return ONLY the CSV:
+[PASTE TRANSCRIPT HERE]
+                    </textarea>
+                    <div class="mt-2 flex items-center gap-2">
+                        <button id="copy-copilot-prompt" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded">Copy prompt</button>
+                        <span id="copilot-prompt-copied" class="text-xs text-blue-700 hidden">Copied!</span>
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <a id="back-to-tool" href="#" class="text-teal-700 hover:underline">← Back to Planner Task Creator</a>
+                </div>
+            </div>
+        </section>
 
         <!-- Planner Selection Section -->
         <div id="planner-section" class="hidden">
@@ -387,6 +496,13 @@
             </div>
         </div>
     </main>
+
+    <!-- Footer -->
+    <footer class="border-t mt-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-sm text-gray-600 flex items-center justify-center text-center">
+            © <a href="https://caerus-online.xyz/" class="text-teal-700 hover:underline" target="_blank" rel="noopener noreferrer">Caerus Online</a> 2025
+        </div>
+    </footer>
 
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

@@ -1,0 +1,53 @@
+# Build outputs
+build/
+dist/
+
+# Deno cache
+.deno/
+
+# Executables
+planner-tasks
+planner-tasks.exe
+planner-tasks-*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Session storage
+sessions.json
+
+# Node modules (if using npm for anything)
+node_modules/
+
+# Lock files (Deno handles its own dependencies)
+package-lock.json
+yarn.lock

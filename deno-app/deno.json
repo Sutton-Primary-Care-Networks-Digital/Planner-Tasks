@@ -1,0 +1,22 @@
+{
+  "tasks": {
+    "start": "deno run --allow-net --allow-read --allow-write --allow-env --allow-run server.ts",
+    "dev": "deno run --allow-net --allow-read --allow-write --allow-env --allow-run --watch server.ts",
+    "compile": "deno compile --no-check '--include=./static/index.html' '--include=./static/app.js' '--include=../logo.png' '--include=../logo.svg' --allow-net --allow-read --allow-write --allow-env --allow-run --output planner-tasks server.ts",
+    "compile-windows": "deno compile --no-check '--include=./static/index.html' '--include=./static/app.js' '--include=../logo.png' '--include=../logo.svg' --allow-net --allow-read --allow-write --allow-env --allow-run --target x86_64-pc-windows-msvc --icon ./assets/icons/logo.ico --output planner-tasks.exe server.ts",
+    "compile-macos": "deno compile --no-check '--include=./static/index.html' '--include=./static/app.js' '--include=../logo.png' '--include=../logo.svg' --allow-net --allow-read --allow-write --allow-env --allow-run --target x86_64-apple-darwin --output planner-tasks-macos server.ts",
+    "compile-linux": "deno compile --no-check '--include=./static/index.html' '--include=./static/app.js' '--include=../logo.png' '--include=../logo.svg' --allow-net --allow-read --allow-write --allow-env --allow-run --target x86_64-unknown-linux-gnu --output planner-tasks-linux server.ts",
+    "compile-macos-arm": "deno compile --no-check '--include=./static/index.html' '--include=./static/app.js' '--include=../logo.png' '--include=../logo.svg' --allow-net --allow-read --allow-write --allow-env --allow-run --target aarch64-apple-darwin --output planner-tasks-macos server.ts",
+    "package-macos-arm": "bash ../scripts/package-macos.sh arm"
+  },
+  "imports": {
+    "@std/csv": "jsr:@std/csv@^1.0.3",
+    "@std/fs": "jsr:@std/fs@^1.0.5",
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "@std/http": "jsr:@std/http@^1.0.12"
+  },
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "es2022", "deno.ns"],
+    "strict": true
+  }
+}

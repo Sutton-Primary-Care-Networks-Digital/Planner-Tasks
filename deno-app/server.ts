@@ -76,25 +76,71 @@ async function parseJSON(request: Request): Promise<any> {
   }
 }
 
+// Resolve an asset by trying embedded (import.meta.url) first, then filesystem
+async function readAsset(pathname: string): Promise<{ content: string | Uint8Array; contentType: string } | null> {
+  try {
+    let url: URL | null = null;
+    // Map URL to asset URL relative to this module
+    if (pathname === "/logo.png" || pathname === "/logo.svg") {
+      url = new URL(`../${pathname.slice(1)}`, import.meta.url);
+    } else if (pathname === "/favicon.ico") {
+      // Try static/favicon.ico first
+      url = new URL("./static/favicon.ico", import.meta.url);
+    } else if (pathname.startsWith("/static/")) {
+      url = new URL(`.${pathname}`, import.meta.url);
+    } else {
+      url = new URL(`./static${pathname}`, import.meta.url);
+    }
+
+    const isBinary = /(\.png|\.ico|\.svg)$/i.test(url.pathname);
+    const contentType = url.pathname.endsWith(".html") ? "text/html"
+      : url.pathname.endsWith(".css") ? "text/css"
+      : url.pathname.endsWith(".js") ? "application/javascript"
+      : url.pathname.endsWith(".json") ? "application/json"
+      : url.pathname.endsWith(".png") ? "image/png"
+      : url.pathname.endsWith(".ico") ? "image/x-icon"
+      : url.pathname.endsWith(".svg") ? "image/svg+xml"
+      : "text/plain";
+
+    if (isBinary) {
+      const data = await Deno.readFile(url);
+      return { content: data, contentType };
+    } else {
+      const text = await Deno.readTextFile(url);
+      return { content: text, contentType };
+    }
+  } catch {
+    return null;
+  }
+}
+
 // Serve static files
 async function serveStaticFile(pathname: string): Promise<Response> {
   try {
-    const filePath = pathname.startsWith("/static/")
-      ? `.${pathname}`
-      : `./static${pathname}`;
-    console.log(`Serving static file: ${filePath}`);
-    const file = await Deno.readTextFile(filePath);
-    
-    let contentType = "text/plain";
-    if (pathname.endsWith(".html")) contentType = "text/html";
-    else if (pathname.endsWith(".css")) contentType = "text/css";
-    else if (pathname.endsWith(".js")) contentType = "application/javascript";
-    else if (pathname.endsWith(".json")) contentType = "application/json";
-    
+    // Try embedded
+    const embedded = await readAsset(pathname === "/" ? "/index.html" : pathname);
+    if (embedded) {
+      console.log(`✅ Static asset served (embedded): ${pathname} (${embedded.contentType})`);
+      return new Response(embedded.content as any, { headers: { ...corsHeaders, "Content-Type": embedded.contentType } });
+    }
+
+    // Fallback to filesystem paths as before
+    let filePath = pathname.startsWith("/static/") ? `.${pathname}` : `./static${pathname}`;
+    if (pathname === "/logo.png" || pathname === "/logo.svg") filePath = `..${pathname}`;
+    if (pathname === "/favicon.ico") filePath = `./static/favicon.ico`;
+
+    const isBinary = /(\.png|\.ico|\.svg)$/i.test(filePath);
+    const contentType = filePath.endsWith(".html") ? "text/html"
+      : filePath.endsWith(".css") ? "text/css"
+      : filePath.endsWith(".js") ? "application/javascript"
+      : filePath.endsWith(".json") ? "application/json"
+      : filePath.endsWith(".png") ? "image/png"
+      : filePath.endsWith(".ico") ? "image/x-icon"
+      : filePath.endsWith(".svg") ? "image/svg+xml"
+      : "text/plain";
+    const content = isBinary ? await Deno.readFile(filePath) : await Deno.readTextFile(filePath);
     console.log(`✅ Static file served: ${filePath} (${contentType})`);
-    return new Response(file, {
-      headers: { ...corsHeaders, "Content-Type": contentType }
-    });
+    return new Response(content as any, { headers: { ...corsHeaders, "Content-Type": contentType } });
   } catch (error) {
     console.error(`❌ Failed to serve static file ${pathname}:`, error);
     return new Response("File not found", { status: 404, headers: corsHeaders });
@@ -730,5 +776,17 @@ async function handleRequest(request: Request): Promise<Response> {
 const port = 8080;
 console.log(`🚀 Microsoft Planner Task Creator running on http://localhost:${port}`);
 console.log(`📝 Ready to process CSV/Excel files and create Microsoft Planner tasks!`);
+
+// Try to open default browser on startup
+try {
+  const url = `http://localhost:${port}`;
+  const openCmd = Deno.build.os === "windows" ? ["cmd", "/c", "start", "", url]
+    : Deno.build.os === "darwin" ? ["open", url]
+    : ["xdg-open", url];
+  const cmd = new Deno.Command(openCmd[0], { args: openCmd.slice(1), stdout: "null", stderr: "null" });
+  cmd.spawn();
+} catch (_) {
+  // ignore if cannot open
+}
 
 Deno.serve({ port }, handleRequest);
