@@ -134,3 +134,25 @@ secrets.json
 # Microsoft Graph API tokens and cache
 token_cache.json
 .token_cache/
+
+# Deno app build artifacts and bundles
+deno-app/dist/
+deno-app/**/*.app/
+deno-app/**/*.app
+deno-app/**/*.exe
+deno-app/**/*.dmg
+deno-app/**/*.pkg
+deno-app/**/*.msi
+deno-app/**/*.deb
+deno-app/**/*.rpm
+deno-app/planner-tasks
+deno-app/sessions.json
+
+# Generic binaries and installers
+*.exe
+*.app
+*.dmg
+*.pkg
+*.msi
+*.deb
+*.rpm

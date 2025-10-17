@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com data:; connect-src 'self'; img-src 'self' data:;">
+    <title>Microsoft Planner Task Creator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-[100] space-y-2"></div>
+    <!-- Header -->
+    <header class="bg-teal-600 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between py-6">
+                <div class="flex items-center">
+                    <i class="fas fa-clipboard-list text-2xl mr-3"></i>
+                    <h1 class="text-2xl font-bold">Microsoft Planner Task Creator</h1>
+                </div>
+
+        
+
+        <!-- Final Preview Modal -->
+        <div id="final-preview-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 w-full max-w-4xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Final Preview</h3>
+                    <button id="final-preview-close" class="text-gray-500 hover:text-gray-700">✕</button>
+                </div>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="font-medium text-gray-800 mb-2">Buckets to be created</h4>
+                        <ul id="final-bucket-create-list" class="space-y-1 text-sm text-gray-700 max-h-40 overflow-y-auto"></ul>
+                        <h4 class="font-medium text-gray-800 mt-4 mb-2">Existing buckets & default</h4>
+                        <ul id="final-bucket-existing-list" class="space-y-1 text-sm text-gray-700 max-h-40 overflow-y-auto"></ul>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-gray-800 mb-2">Tasks (compact)</h4>
+                        <div id="final-task-list" class="space-y-1 text-sm text-gray-700 max-h-64 overflow-y-auto"></div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-3 mt-4">
+                    <button id="final-preview-confirm" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded">Create Buckets & Tasks</button>
+                    <button id="final-preview-cancel" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">Cancel</button>
+                </div>
+            </div>
+        </div>
+                <div id="user-info" class="hidden">
+                    <button id="sign-out-btn" class="bg-teal-700 hover:bg-teal-800 px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Sign Out
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Step Indicator -->
+        <div id="step-indicator" class="hidden mb-8">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div id="step-1" class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-medium">1</div>
+                        <span class="ml-2 text-sm font-medium text-gray-700">Authenticate</span>
+                    </div>
+                    <div class="w-8 h-1 bg-gray-300"></div>
+                    <div id="step-2" class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-sm font-medium">2</div>
+                        <span class="ml-2 text-sm font-medium text-gray-500">Upload File</span>
+                    </div>
+                    <div class="w-8 h-1 bg-gray-300"></div>
+                    <div id="step-3" class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-sm font-medium">3</div>
+                        <span class="ml-2 text-sm font-medium text-gray-500">Map Columns</span>
+                    </div>
+                    <div class="w-8 h-1 bg-gray-300"></div>
+                    <div id="step-4" class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-sm font-medium">4</div>
+                        <span class="ml-2 text-sm font-medium text-gray-500">Select Planner</span>
+                    </div>
+                    <div class="w-8 h-1 bg-gray-300"></div>
+                    <div id="step-5" class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-sm font-medium">5</div>
+                        <span class="ml-2 text-sm font-medium text-gray-500">Create Tasks</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Authentication Section -->
+        <div id="auth-section" class="max-w-2xl mx-auto">
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <div class="text-center mb-8">
+                    <i class="fas fa-shield-alt text-4xl text-teal-600 mb-4"></i>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h2>
+                    <p class="text-gray-600">Sign in with your NHS.net account to access Microsoft Planner</p>
+                </div>
+
+                <div class="space-y-4">
+                    <button id="browser-auth-btn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center">
+                        <i class="fas fa-globe mr-2"></i>
+                        Sign in with NHS.net Account
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Upload Section -->
+        <div id="upload-section" class="hidden max-w-2xl mx-auto">
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <div class="text-center mb-8">
+                    <i class="fas fa-file-upload text-4xl text-green-600 mb-4"></i>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Upload CSV or Excel File</h2>
+                    <p class="text-gray-600">Upload a file with your task data to get started</p>
+                </div>
+
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <input type="file" id="file-input" accept=".csv,.xlsx,.xls" class="hidden">
+                    <label for="file-input" class="cursor-pointer">
+                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-4"></i>
+                        <p class="text-lg text-gray-600 mb-2">Click to select or drag and drop</p>
+                        <p class="text-sm text-gray-500">CSV, XLSX, or XLS files only</p>
+                    </label>
+                </div>
+
+                <div id="file-info" class="hidden mt-4 p-4 bg-green-50 rounded-lg">
+                    <h3 class="font-medium text-green-800 mb-2">File Selected</h3>
+                    <p id="file-name" class="text-sm text-green-700"></p>
+                    <button id="process-file-btn" class="mt-4 bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        <i class="fas fa-cog mr-2"></i>Process File
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Column Mapping Section -->
+        <div id="column-mapping-section" class="hidden">
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Map Columns</h2>
+                    <p class="text-gray-600">Map your file columns to the required task fields</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-4">Available Columns</h3>
+                        <ul id="available-columns" class="space-y-2 text-sm text-gray-700">
+                            <!-- Populated by JavaScript -->
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-4">Field Mapping</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Title (required) <span class="text-red-500">*</span>
+                                </label>
+                                <select id="title-column" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    <option value="">Select column...</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
+                                <select id="description-column" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    <option value="">Select column...</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Start Date (optional)</label>
+                                <select id="start-date-column" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    <option value="">Select column...</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Due Date (optional)</label>
+                                <select id="due-date-column" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    <option value="">Select column...</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Assignee (optional)</label>
+                                <select id="assignee-column" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    <option value="">Select column...</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">Supports comma-separated multiple assignees</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Bucket Name (optional)</label>
+                                <select id="bucket-column" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    <option value="">Select column...</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Status (optional)</label>
+                                <select id="status-column" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    <option value="">Select column...</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button id="map-columns-btn" class="mt-6 bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-arrow-right mr-2"></i>Process Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Planner Selection Section -->
+        <div id="planner-section" class="hidden">
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Select Planner and Bucket</h2>
+                    <p class="text-gray-600">Choose where to create your tasks</p>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Planner</label>
+                        <select id="planner-select" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            <option value="">Loading planners...</option>
+                        </select>
+                    </div>
+                    
+                    <div id="bucket-section" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Default Bucket</label>
+                        <select id="bucket-select" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            <option value="">Loading buckets...</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Tasks will be created in this bucket unless they have specific bucket names</p>
+                    </div>
+                </div>
+
+                <div id="task-preview" class="hidden mt-8">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-semibold text-gray-900">Task Preview</h3>
+                        <div class="flex items-center space-x-4">
+                            <label class="inline-flex items-center space-x-2 text-sm text-gray-700">
+                                <input id="create-missing-buckets-toggle" type="checkbox" class="rounded" checked>
+                                <span>Create all missing buckets</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="bg-white border rounded p-3 mb-4" id="bucket-select-inline">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-medium text-gray-800">Bucket selection</h4>
+                            <span class="text-xs text-gray-500">Select which missing buckets to create</span>
+                        </div>
+                        <ul id="bucket-selection-list-inline" class="grid md:grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-700 max-h-40 overflow-y-auto"></ul>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div id="task-stats" class="grid grid-cols-4 gap-4 mb-4">
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-teal-600" id="total-tasks">0</div>
+                                <div class="text-sm text-gray-500">Total Tasks</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-green-600" id="assigned-tasks">0</div>
+                                <div class="text-sm text-gray-500">With Assignees</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-yellow-600" id="buckets-found">0</div>
+                                <div class="text-sm text-gray-500">Buckets Found</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-purple-600" id="due-dates">0</div>
+                                <div class="text-sm text-gray-500">With Due Dates</div>
+                            </div>
+                        </div>
+                        
+                        <div id="task-list" class="space-y-2 max-h-64 overflow-y-auto">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+
+                    <div class="mt-8 p-4 bg-yellow-50 rounded-lg">
+                        <h3 class="font-medium text-yellow-800 mb-2">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            Confirmation Required
+                        </h3>
+                        <p class="text-sm text-yellow-700 mb-4">
+                            Please verify the information above is correct before proceeding. 
+                            This will create tasks in your Microsoft Planner.
+                        </p>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="confirm-creation" class="mr-2">
+                            <span class="text-sm text-yellow-700">I confirm that I want to create these tasks</span>
+                        </label>
+                    </div>
+
+                    <button id="create-tasks-btn" class="mt-6 bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fas fa-eye mr-2"></i>Final Preview
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bucket Preview Modal -->
+        <div id="bucket-preview-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 w-full max-w-3xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Bucket Preview</h3>
+                    <button id="bucket-preview-close" class="text-gray-500 hover:text-gray-700">✕</button>
+                </div>
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="font-medium text-gray-800 mb-2">Buckets to be created</h4>
+                        <ul id="bucket-create-list" class="space-y-1 text-sm text-gray-700"></ul>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-gray-800 mb-2">Existing buckets & default</h4>
+                        <ul id="bucket-existing-list" class="space-y-1 text-sm text-gray-700"></ul>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-3 mt-4">
+                    <button id="bucket-create-btn" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded">Create Buckets</button>
+                    <button id="bucket-preview-ok" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results-section" class="hidden">
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <div class="text-center mb-8">
+                    <i class="fas fa-check-circle text-4xl text-green-600 mb-4"></i>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Task Creation Complete!</h2>
+                </div>
+
+                <div id="results-summary" class="grid grid-cols-4 gap-4 mb-8">
+                    <div class="text-center p-4 bg-green-50 rounded-lg">
+                        <div class="text-3xl font-bold text-green-600" id="created-count">0</div>
+                        <div class="text-sm text-green-700">Created</div>
+                    </div>
+                    <div class="text-center p-4 bg-blue-50 rounded-lg">
+                        <div class="text-3xl font-bold text-blue-600" id="assigned-count">0</div>
+                        <div class="text-sm text-blue-700">Assigned</div>
+                    </div>
+                    <div class="text-center p-4 bg-yellow-50 rounded-lg">
+                        <div class="text-3xl font-bold text-yellow-600" id="warning-count">0</div>
+                        <div class="text-sm text-yellow-700">Warnings</div>
+                    </div>
+                    <div class="text-center p-4 bg-red-50 rounded-lg">
+                        <div class="text-3xl font-bold text-red-600" id="failed-count">0</div>
+                        <div class="text-sm text-red-700">Failed</div>
+                    </div>
+                </div>
+
+                <div id="results-details" class="space-y-2 max-h-96 overflow-y-auto">
+                    <!-- Populated by JavaScript -->
+                </div>
+
+                <div class="mt-8 text-center">
+                    <button id="create-more-btn" class="bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 px-6 rounded-lg transition-colors mr-4">
+                        <i class="fas fa-plus mr-2"></i>Create More Tasks
+                    </button>
+                    <a href="https://tasks.office.com" target="_blank" class="bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 px-6 rounded-lg transition-colors inline-block">
+                        <i class="fas fa-external-link-alt mr-2"></i>View in Microsoft Planner
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-sm w-full mx-4">
+            <div class="text-center">
+                <div class="spinner w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p id="loading-message" class="text-gray-700">Processing...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/app.js"></script>
+</body>
+</html>
