@@ -58,22 +58,20 @@ class PlannerApp {
         if (storedSessionId) {
             this.sessionId = storedSessionId;
             try {
-                const response = await this.apiRequest('/api/auth/status');
+                const response = await this.apiRequest('/api/auth/status', { suppressAuthToast: true });
                 if (response.authenticated) {
-                    this.onAuthenticated();
+                    await this.onAuthenticated();
                     return;
                 }
                 // Stored session but not authenticated
                 this.sessionId = null;
                 localStorage.removeItem('planner-session-id');
-                this.showToast('Session expired. Please sign in again.', 'warning');
                 this.showStep('auth');
                 return;
             } catch (error) {
                 // Auth check failed, clear stored session
                 this.sessionId = null;
                 localStorage.removeItem('planner-session-id');
-                this.showToast('Session expired. Please sign in again.', 'warning');
                 this.showStep('auth');
                 return;
             }
@@ -81,6 +79,27 @@ class PlannerApp {
         
         // No valid existing auth, show auth step
         this.showStep('auth');
+    }
+
+    async verifyPlannerAccess() {
+        // Perform a silent preflight call to confirm we can list planners; if not, auto sign-out without toast
+        try {
+            const data = await this.apiRequest('/api/planners', { suppressAuthToast: true });
+            const planners = Array.isArray(data.planners) ? data.planners : [];
+            if (planners.length === 0) {
+                this.sessionId = null;
+                localStorage.removeItem('planner-session-id');
+                this.showStep('auth');
+                return false;
+            }
+            return true;
+        } catch (_e) {
+            // Treat any failure as invalid auth; sign out silently
+            this.sessionId = null;
+            localStorage.removeItem('planner-session-id');
+            this.showStep('auth');
+            return false;
+        }
     }
     
     setupEventListeners() {
@@ -120,6 +139,57 @@ class PlannerApp {
                 }
             });
         });
+
+        // Delegated handlers to make assignee checkboxes resilient across rerenders
+        document.addEventListener('change', (e) => {
+            const t = e.target;
+            if (!(t instanceof HTMLElement)) return;
+            if (t instanceof HTMLInputElement && t.classList && t.classList.contains('assignee-check')) {
+                e.stopPropagation();
+                const idx = parseInt(t.getAttribute('data-task-index') || '-1', 10);
+                const id = t.getAttribute('value') || '';
+                if (isNaN(idx) || !id) return;
+                if (!this.assigneeOverrides[idx]) this.assigneeOverrides[idx] = Array.isArray(this.assigneeOverrides[idx]) ? this.assigneeOverrides[idx] : [];
+                const list = new Set(this.assigneeOverrides[idx]);
+                if (t.checked) list.add(id); else list.delete(id);
+                this.assigneeOverrides[idx] = Array.from(list);
+                const menu = t.closest('.assignee-menu');
+                const btn = menu?.previousElementSibling;
+                if (btn && btn.classList.contains('assignee-toggle')) {
+                    const count = this.assigneeOverrides[idx].length;
+                    const label = count === 0 ? 'Assign...' : (count === 1 ? ((this.plannerMembers.find(m=>m.id===this.assigneeOverrides[idx][0])||{}).displayName || '1 selected') : `${count} selected`);
+                    btn.textContent = label;
+                }
+                const summary = document.querySelector(`.assignee-summary[data-task-index="${idx}"]`);
+                if (summary) {
+                    summary.textContent = this.renderAssigneeSummary(this.assigneeOverrides[idx]);
+                }
+                const info = document.getElementById(`assignee-info-${idx}`);
+                if (info) {
+                    const ids = this.assigneeOverrides[idx] || [];
+                    if (ids.length > 0) {
+                        const names = ids.map(id2 => (this.plannerMembers.find(m => m.id === id2) || {}).displayName).filter(Boolean).join(', ');
+                        info.innerHTML = `<span class="text-green-700">👤 ${names}</span>`;
+                    } else {
+                        info.innerHTML = '';
+                    }
+                }
+            }
+        }, true);
+        document.addEventListener('mousedown', (e) => {
+            const t = e.target;
+            if (!(t instanceof HTMLElement)) return;
+            if (t.classList && (t.classList.contains('assignee-check') || t.closest('.assignee-list label'))) {
+                e.stopPropagation();
+            }
+        }, true);
+        document.addEventListener('click', (e) => {
+            const t = e.target;
+            if (!(t instanceof HTMLElement)) return;
+            if (t.classList && (t.classList.contains('assignee-check') || t.closest('.assignee-list label'))) {
+                e.stopPropagation();
+            }
+        }, true);
         
         // Results
         document.getElementById('create-more-btn').addEventListener('click', () => this.reset());
@@ -357,7 +427,9 @@ class PlannerApp {
                 try { await response.clone().json(); } catch {}
                 this.sessionId = null;
                 localStorage.removeItem('planner-session-id');
-                this.showToast('Session expired. Please sign in again.', 'warning');
+                if (!options.suppressAuthToast) {
+                    this.showToast('Session expired. Please sign in again.', 'warning');
+                }
                 this.showStep('auth');
                 throw new Error('Session expired. Please sign in again.');
             }
@@ -366,6 +438,21 @@ class PlannerApp {
         }
         
         return response.json();
+    }
+
+    async ensureAuthenticatedOrSignOut() {
+        try {
+            const status = await this.apiRequest('/api/auth/status', { suppressAuthToast: true });
+            if (status && status.authenticated) return true;
+        } catch (_e) {
+            // apiRequest already handled UI sign-out and redirect on 401/403
+            return false;
+        }
+        // Fallback: if status returned but not authenticated
+        this.sessionId = null;
+        localStorage.removeItem('planner-session-id');
+        this.showStep('auth');
+        return false;
     }
     
     async startBrowserAuth() {
@@ -381,7 +468,7 @@ class PlannerApp {
                 this.sessionId = response.sessionId;
                 localStorage.setItem('planner-session-id', response.sessionId);
                 this.hideLoading();
-                this.onAuthenticated();
+                await this.onAuthenticated();
             } else {
                 throw new Error(response.error || 'Authentication failed');
             }
@@ -393,7 +480,10 @@ class PlannerApp {
     }
     
     
-    onAuthenticated() {
+    async onAuthenticated() {
+        // Proactively verify that Planner APIs are accessible; if not, we will be redirected to sign-in
+        const ok = await this.verifyPlannerAccess();
+        if (!ok) return;
         this.showStep('upload');
     }
     
@@ -557,8 +647,17 @@ class PlannerApp {
     
     async loadPlanners() {
         try {
-            const data = await this.apiRequest('/api/planners');
+            const ok = await this.ensureAuthenticatedOrSignOut();
+            if (!ok) return; // Redirected to sign-in already
+            const data = await this.apiRequest('/api/planners', { suppressAuthToast: true });
             this.planners = Array.isArray(data.planners) ? data.planners : [];
+            if (this.planners.length === 0) {
+                // Treat as invalid/expired access; sign out silently and redirect
+                this.sessionId = null;
+                localStorage.removeItem('planner-session-id');
+                this.showStep('auth');
+                return;
+            }
             
             const select = document.getElementById('planner-select');
             select.innerHTML = '<option value="">Select a planner...</option>';
@@ -569,14 +668,11 @@ class PlannerApp {
                 option.textContent = `${planner.title} (${planner.groupName})`;
                 select.appendChild(option);
             });
-            if (this.planners.length === 0) {
-                // Do NOT force re-auth; allow user to retry or sign in again manually.
-                this.showToast('No planners found. Please sign in again, then retry.', 'warning');
-                return;
-            }
             
         } catch (error) {
-            this.showToast('Session expired. Please sign in again.', 'warning');
+            // apiRequest handles 401/403; for other errors, redirect silently
+            this.sessionId = null;
+            localStorage.removeItem('planner-session-id');
             this.showStep('auth');
         }
     }
@@ -734,7 +830,19 @@ class PlannerApp {
                     ? ((this.plannerMembers.find(m=>m.id===selectedIds[0])||{}).displayName || '1 selected')
                     : `${selectedIds.length} selected`);
             const manualAssignHtml = `
-              <div class=\"mt-2 relative inline-block\">\n                <button type=\"button\" class=\"assignee-toggle border border-gray-300 rounded px-2 py-1 bg-white text-sm\" data-task-index=\"${idx}\">${selectedSummary}</button>\n                <div class=\"assignee-menu hidden absolute z-10 mt-1 w-72 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded shadow\">\n                  <div class=\\\"px-3 py-2 border-b bg-gray-50\\\">\n                    <input type=\\\"text\\\" class=\\\"assignee-search w-full border border-gray-300 rounded px-2 py-1 text-sm\\\" placeholder=\\\"Search...\\\" data-task-index=\\\"${idx}\\\">\n                  </div>\n                  ${candidateChecks ? `<div class=\\\"px-3 py-1 text-xs text-gray-500 bg-gray-50\\\">Suggested</div>` : ''}\n                  <div class=\"px-3 assignee-list\">${candidateChecks}</div>\n                  ${memberChecks ? `<div class=\\\"px-3 py-1 text-xs text-gray-500 bg-gray-50 border-t\\\">All members</div>` : ''}\n                  <div class=\"px-3 assignee-list\">${memberChecks}</div>\n                </div>\n              </div>\n              <div class=\"assignee-summary text-xs text-gray-600 mt-1\" data-task-index=\"${idx}\">${this.renderAssigneeSummary(selectedIds)}</div>`;
+              <div class="mt-2 relative inline-block">
+                <button type="button" class="assignee-toggle border border-gray-300 rounded px-2 py-1 bg-white text-sm" data-task-index="${idx}">${selectedSummary}</button>
+                <div class="assignee-menu hidden absolute z-50 mt-1 w-72 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded shadow">
+                  <div class="px-3 py-2 border-b bg-gray-50">
+                    <input type="text" class="assignee-search w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="Search..." data-task-index="${idx}">
+                  </div>
+                  ${candidateChecks ? `<div class="px-3 py-1 text-xs text-gray-500 bg-gray-50">Suggested</div>` : ''}
+                  <div class="px-3 assignee-list">${candidateChecks}</div>
+                  ${memberChecks ? `<div class="px-3 py-1 text-xs text-gray-500 bg-gray-50 border-t">All members</div>` : ''}
+                  <div class="px-3 assignee-list">${memberChecks}</div>
+                </div>
+              </div>
+              <div class="assignee-summary text-xs text-gray-600 mt-1" data-task-index="${idx}">${this.renderAssigneeSummary(selectedIds)}</div>`;
 
             // Status dropdown
             const statusOptions = [
@@ -791,6 +899,8 @@ class PlannerApp {
 
         // Wire assignee checkbox lists
         document.querySelectorAll('.assignee-check').forEach(cb => {
+            // Prevent outside click handler from firing before change
+            cb.addEventListener('mousedown', (e) => e.stopPropagation());
             cb.addEventListener('change', (e) => {
                 // Keep menu open and prevent outside-click handler from triggering
                 e.stopPropagation();
@@ -832,6 +942,12 @@ class PlannerApp {
             });
             // Also intercept direct clicks on the checkbox element
             cb.addEventListener('click', (e) => e.stopPropagation());
+        });
+
+        // Also guard label interactions to avoid bubbling to document
+        document.querySelectorAll('.assignee-list label').forEach(lbl => {
+            lbl.addEventListener('mousedown', (e) => e.stopPropagation());
+            lbl.addEventListener('click', (e) => e.stopPropagation());
         });
 
         // Wire status dropdowns
